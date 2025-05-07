@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+
+{% block title %}Join Group{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="text-center mb-4">Join Existing Group</h2>
+                <form method="POST" action="{{ url_for('join_group') }}">
+                    <div class="mb-3">
+                        <label for="invite_code" class="form-label">Invite Code</label>
+                        <input type="text" class="form-control font-monospace" id="invite_code" name="invite_code" required>
+                        <div class="form-text">Enter the 8-character invite code provided by the group creator.</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Join Group</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

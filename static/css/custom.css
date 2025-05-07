@@ -1,0 +1,120 @@
+/* Primary Custom Styles for BudgetSplit */
+
+/* General spacing */
+body {
+    padding-top: 56px; /* For fixed navbar */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+    padding: 2rem 0;
+}
+
+footer {
+    margin-top: auto;
+    padding: 1rem 0;
+}
+
+/* Custom card styles */
+.card-dashboard {
+    transition: transform 0.2s;
+    margin-bottom: 1.5rem;
+    height: 100%;
+}
+
+.card-dashboard:hover {
+    transform: translateY(-5px);
+}
+
+/* Group card styles */
+.group-card {
+    border-left: 4px solid var(--bs-primary);
+}
+
+.invite-code {
+    font-family: monospace;
+    background-color: var(--bs-gray-900);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+}
+
+/* Balance styles */
+.positive-balance {
+    color: var(--bs-success);
+}
+
+.negative-balance {
+    color: var(--bs-danger);
+}
+
+.neutral-balance {
+    color: var(--bs-gray-600);
+}
+
+/* Charts */
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin-bottom: 2rem;
+}
+
+/* Settlement plan */
+.settlement-item {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    background-color: var(--bs-gray-900);
+}
+
+.settlement-item .arrow {
+    color: var(--bs-gray-600);
+    font-size: 1.5rem;
+    margin: 0 0.5rem;
+}
+
+/* Expense form */
+.custom-split-section {
+    background-color: var(--bs-gray-900);
+    padding: 1rem;
+    border-radius: 0.25rem;
+    margin-top: 1rem;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .chart-container {
+        height: 250px;
+    }
+    
+    .hide-on-mobile {
+        display: none;
+    }
+}
+
+/* Notifications */
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 0.7rem;
+}
+
+.notification-item {
+    border-left: 3px solid var(--bs-primary);
+    padding-left: 1rem;
+    margin-bottom: 1rem;
+}
+
+.notification-item.unread {
+    border-left-color: var(--bs-warning);
+    background-color: var(--bs-gray-900);
+}
+
+/* Currency label in expense form */
+.currency-addon {
+    background-color: var(--bs-gray-800);
+    color: var(--bs-gray-400);
+}

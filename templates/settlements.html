@@ -1,0 +1,119 @@
+{% extends "layout.html" %}
+
+{% block title %}Settlements - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Settlements - {{ group.name }}</h1>
+        <div>
+            <a href="{{ url_for('view_group', group_id=group.id) }}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i> Back to Group
+            </a>
+            <a href="{{ url_for('export_group_data', group_id=group.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-file-export me-1"></i> Export Data
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Balance Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Balance Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="expense-breakdown-chart" data-group-id="{{ group.id }}"></canvas>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6 class="mb-3">Current Balances</h6>
+                    <ul class="list-group">
+                        {% for user_id, balance in balances.items() %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {% for member in members %}
+                                    {% if member.id == user_id %}
+                                        {{ member.username }}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if balance > 0 %}
+                                    <span class="badge bg-success rounded-pill">is owed ${{ balance }}</span>
+                                {% elif balance < 0 %}
+                                    <span class="badge bg-danger rounded-pill">owes ${{ balance|abs }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill">settled</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settlement Plan -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Settlement Plan</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        This is the most efficient way to settle all debts in the group with the minimum number of transactions.
+                    </p>
+                    
+                    {% if settlement_plan|length > 0 %}
+                        <div class="settlement-list">
+                            {% for settlement in settlement_plan %}
+                                <div class="settlement-item mb-3">
+                                    <div class="row align-items-center">
+                                        <div class="col-4 text-end">
+                                            {% for member in members %}
+                                                {% if member.id == settlement.from %}
+                                                    <strong>{{ member.username }}</strong>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                        <div class="col-4 text-center">
+                                            <div>
+                                                <i class="fas fa-arrow-right text-primary"></i>
+                                                <div class="mt-1">
+                                                    <span class="badge bg-primary">${{ settlement.amount }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            {% for member in members %}
+                                                {% if member.id == settlement.to %}
+                                                    <strong>{{ member.username }}</strong>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                            <h5>All settled!</h5>
+                            <p class="text-muted">Everyone in the group is settled up.</p>
+                        </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <a href="{{ url_for('export_group_data', group_id=group.id) }}" class="btn btn-outline-primary">
+                            <i class="fas fa-file-export me-2"></i>Export Settlement Data
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

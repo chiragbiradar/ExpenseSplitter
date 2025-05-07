@@ -1,0 +1,112 @@
+{% extends "layout.html" %}
+
+{% block title %}Add Expense - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header">
+                <h3 class="mb-0">Add New Expense to "{{ group.name }}"</h3>
+            </div>
+            <div class="card-body p-4">
+                <form id="expense-form" method="POST" action="{{ url_for('add_expense', group_id=group.id) }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="description" name="description" placeholder="e.g., Dinner, Groceries, Rent" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="date" class="form-label">Date</label>
+                                <input type="date" class="form-control" id="date" name="date" value="{{ '%Y-%m-%d'|datetime }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="amount" class="form-label">Amount</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0.01" placeholder="0.00" required>
+                                    <select class="form-select currency-addon" id="currency" name="currency">
+                                        <option value="USD">USD</option>
+                                        <option value="EUR">EUR</option>
+                                        <option value="GBP">GBP</option>
+                                        <option value="JPY">JPY</option>
+                                        <option value="CAD">CAD</option>
+                                        <option value="AUD">AUD</option>
+                                        <option value="INR">INR</option>
+                                        <option value="CNY">CNY</option>
+                                    </select>
+                                </div>
+                                <div class="form-text text-end" id="converted-amount"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payer" class="form-label">Paid By</label>
+                                <select class="form-select" id="payer" name="payer" required>
+                                    <option value="" disabled selected>Select who paid</option>
+                                    {% for member in members %}
+                                    <option value="{{ member.id }}" {% if member.id == current_user.id %}selected{% endif %}>{{ member.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="participants" class="form-label">Participants</label>
+                        <select class="form-select" id="participants" name="participants" multiple required>
+                            {% for member in members %}
+                            <option value="{{ member.id }}" selected>{{ member.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Select everyone who is sharing this expense (default: all members)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Split Type</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="split_type" id="split_equal" value="equal" checked>
+                            <label class="form-check-label" for="split_equal">
+                                Equal Split
+                            </label>
+                            <div class="form-text">Everyone pays the same amount</div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="split_type" id="split_custom" value="custom">
+                            <label class="form-check-label" for="split_custom">
+                                Custom Split
+                            </label>
+                            <div class="form-text">Specify percentages for each participant</div>
+                        </div>
+                    </div>
+                    
+                    <div id="custom-split-section" class="d-none custom-split-section">
+                        <h5 class="mb-3">Custom Split Percentages</h5>
+                        <p class="text-muted small">Specify what percentage of the expense each person should pay. The total must add up to 100%.</p>
+                        
+                        <div id="custom-split-container">
+                            <!-- JavaScript will populate this section with form fields for each participant -->
+                        </div>
+                        
+                        <div class="d-flex justify-content-end">
+                            <p>Total: <span id="total-percentage" class="fw-bold">0.00</span>%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('view_group', group_id=group.id) }}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Expense</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
