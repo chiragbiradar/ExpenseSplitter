@@ -261,15 +261,47 @@ def add_expense(group_id):
         # Create notifications for all participants except the one adding the expense
         for participant in participants:
             if participant != current_user.id:
+                # Create in-app notification
                 notification = Notification(
                     user_id=participant,
                     title=f"New Expense in {group.name}",
                     message=f"{current_user.username} added a new expense: {description} ({currency} {amount})",
-                    link=url_for('view_group', group_id=group_id)
+                    link=url_for('view_group', group_id=group_id, _external=True)
                 )
                 if participant not in notifications:
                     notifications[participant] = []
                 notifications[participant].append(notification)
+                
+                # Send email notification if we have the participant's email
+                participant_user = users.get(participant)
+                if participant_user and participant_user.email:
+                    from utils import send_email
+                    
+                    # Create HTML email content
+                    html_content = f"""
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2>New Expense in {group.name}</h2>
+                        <p>{current_user.username} added a new expense:</p>
+                        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                            <p><strong>Description:</strong> {description}</p>
+                            <p><strong>Amount:</strong> {currency} {amount}</p>
+                            <p><strong>Date:</strong> {date.strftime('%Y-%m-%d')}</p>
+                        </div>
+                        <p>View all group expenses and settlements:</p>
+                        <a href="{url_for('view_group', group_id=group_id, _external=True)}" 
+                           style="background-color: #007bff; color: white; padding: 10px 15px; 
+                                  text-decoration: none; border-radius: 4px; display: inline-block;">
+                           View Details
+                        </a>
+                    </div>
+                    """
+                    
+                    # Send the email
+                    send_email(
+                        to_email=participant_user.email,
+                        subject=f"New Expense in {group.name}",
+                        html_content=html_content
+                    )
         
         flash('Expense added successfully!', 'success')
         return redirect(url_for('view_group', group_id=group_id))

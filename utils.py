@@ -1,5 +1,8 @@
+import os
 import requests
+import resend
 from collections import defaultdict
+from datetime import datetime
 
 def calculate_balances(group_id, expenses, members):
     """
@@ -118,3 +121,44 @@ def get_exchange_rates():
     #     print(f"Error fetching exchange rates: {e}")
     
     return rates
+
+def send_email(to_email, subject, html_content):
+    """
+    Send an email using the Resend API.
+    
+    Args:
+        to_email (str): Recipient's email address
+        subject (str): Email subject
+        html_content (str): HTML content of the email
+    
+    Returns:
+        dict: Response from the Resend API
+        
+    Note:
+        This requires the RESEND_API_KEY environment variable to be set.
+    """
+    try:
+        # Initialize Resend API key
+        resend.api_key = os.environ.get("RESEND_API_KEY")
+        
+        # Check if API key is available
+        if not resend.api_key:
+            print("Resend API key not found in environment variables.")
+            return {"error": "API key not configured"}
+        
+        # Prepare email parameters
+        params = {
+            "from": "BudgetSplit <notifications@budgetsplit.app>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content
+        }
+        
+        # Send the email
+        response = resend.Emails.send(params)
+        print(f"Email sent to {to_email}: {response}")
+        return response
+        
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return {"error": str(e)}
