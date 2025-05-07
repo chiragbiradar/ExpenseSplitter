@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Function to show toast notifications
-    function showToastNotification(title, message, link = null) {
+    window.showToastNotification = function(title, message, link = null) {
         const toastContainer = document.querySelector('.toast-container');
         if (!toastContainer) return;
         
@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Set interval to check for new notifications
-    // setInterval(checkForNewNotifications, 30000);
+    setInterval(checkForNewNotifications, 30000); // Check every 30 seconds
     
     // Handle currency conversion in add expense form
     const currencySelect = document.getElementById('currency');

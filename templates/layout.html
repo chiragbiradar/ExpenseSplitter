@@ -157,6 +157,19 @@
             {% endfor %}
         ];
         
+        // Show initial notifications when the page loads
+        setTimeout(function() {
+            if (window.notificationsData && window.notificationsData.length > 0) {
+                window.notificationsData.forEach(notification => {
+                    window.showToastNotification(
+                        notification.title,
+                        notification.message,
+                        notification.link
+                    );
+                });
+            }
+        }, 1000); // Slight delay to ensure toast functionality is loaded
+        
         // Enable polling for new notifications
         document.addEventListener('DOMContentLoaded', function() {
             // Check for new notifications every 30 seconds
@@ -167,7 +180,7 @@
                         if (data.notifications && data.notifications.length > 0) {
                             // Use showToastNotification function from app.js
                             data.notifications.forEach(notification => {
-                                showToastNotification(
+                                window.showToastNotification(
                                     notification.title,
                                     notification.message,
                                     notification.link
