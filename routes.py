@@ -12,6 +12,11 @@ from app import app, users, groups, expenses, notifications
 from models import User, Group, Expense, Notification
 from utils import calculate_balances, get_settlement_plan, get_exchange_rates
 
+# Template context processor to provide utility functions
+@app.context_processor
+def utility_processor():
+    return dict(now=datetime.now)
+
 # Home route
 @app.route('/')
 def home():
