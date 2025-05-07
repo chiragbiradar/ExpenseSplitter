@@ -12,10 +12,19 @@ from app import app, users, groups, expenses, notifications
 from models import User, Group, Expense, Notification
 from utils import calculate_balances, get_settlement_plan, get_exchange_rates
 
-# Template context processor to provide utility functions
+# Template context processors
 @app.context_processor
 def utility_processor():
     return dict(now=datetime.now)
+
+@app.context_processor
+def inject_notifications():
+    """Add notifications to all templates."""
+    if current_user.is_authenticated:
+        user_notifications = notifications.get(current_user.id, [])
+        unread_count = sum(1 for notif in user_notifications if not notif.read)
+        return {'notifications': user_notifications, 'unread_count': unread_count}
+    return {'notifications': [], 'unread_count': 0}
 
 # Home route
 @app.route('/')
@@ -468,6 +477,19 @@ def view_notifications():
 def api_exchange_rates():
     rates = get_exchange_rates()
     return jsonify(rates)
+
+@app.route('/api/notifications/unread')
+@login_required
+def api_unread_notifications():
+    """API endpoint to get unread notifications for the current user."""
+    user_notifications = notifications.get(current_user.id, [])
+    unread_notifications = [n.to_dict() for n in user_notifications if not n.read]
+    
+    # Mark as read after fetching
+    for notification in user_notifications:
+        notification.read = True
+    
+    return jsonify({"notifications": unread_notifications})
 
 @app.route('/api/groups/<group_id>/balance-data')
 @login_required

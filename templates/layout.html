@@ -94,6 +94,11 @@
         </div>
     </main>
 
+    <!-- Toast Container for Notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <!-- Dynamic toasts will be inserted here -->
+    </div>
+
     <!-- Footer -->
     <footer class="bg-dark text-light py-4">
         <div class="container">
@@ -136,6 +141,46 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+    
+    {% if current_user.is_authenticated %}
+    <script>
+        // Pass unread notifications to JavaScript for toast display
+        window.notificationsData = [
+            {% for notification in notifications %}
+                {% if not notification.read %}
+                {
+                    title: "{{ notification.title }}",
+                    message: "{{ notification.message }}",
+                    link: "{{ notification.link }}"
+                }{% if not loop.last %},{% endif %}
+                {% endif %}
+            {% endfor %}
+        ];
+        
+        // Enable polling for new notifications
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for new notifications every 30 seconds
+            setInterval(function() {
+                fetch('/api/notifications/unread')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.notifications && data.notifications.length > 0) {
+                            // Use showToastNotification function from app.js
+                            data.notifications.forEach(notification => {
+                                showToastNotification(
+                                    notification.title,
+                                    notification.message,
+                                    notification.link
+                                );
+                            });
+                        }
+                    })
+                    .catch(error => console.error('Error checking notifications:', error));
+            }, 30000);
+        });
+    </script>
+    {% endif %}
+    
     {% block scripts %}{% endblock %}
 </body>
 </html>

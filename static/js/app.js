@@ -11,6 +11,94 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Popover(popoverTriggerEl);
     });
     
+    // Function to show toast notifications
+    function showToastNotification(title, message, link = null) {
+        const toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) return;
+        
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Create toast element
+        const toastEl = document.createElement('div');
+        toastEl.className = 'toast';
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.setAttribute('aria-atomic', 'true');
+        
+        // Create toast content
+        let toastContent = `
+            <div class="toast-header">
+                <i class="fas fa-bell me-2 text-primary"></i>
+                <strong class="me-auto">${title}</strong>
+                <small>${timeStr}</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+        `;
+        
+        // Add link button if provided
+        if (link) {
+            toastContent += `
+                <div class="mt-2">
+                    <a href="${link}" class="btn btn-sm btn-primary">View</a>
+                </div>
+            `;
+        }
+        
+        toastContent += `</div>`;
+        toastEl.innerHTML = toastContent;
+        
+        // Add to container
+        toastContainer.appendChild(toastEl);
+        
+        // Initialize and show toast
+        const toast = new bootstrap.Toast(toastEl, {
+            autohide: true,
+            delay: 5000
+        });
+        toast.show();
+        
+        // Remove from DOM after hidden
+        toastEl.addEventListener('hidden.bs.toast', function() {
+            toastEl.remove();
+        });
+    }
+    
+    // Check for new notifications via API every 30 seconds
+    function checkForNewNotifications() {
+        fetch('/api/notifications/unread')
+            .then(response => response.json())
+            .then(data => {
+                if (data.notifications && data.notifications.length > 0) {
+                    data.notifications.forEach(notification => {
+                        showToastNotification(
+                            notification.title,
+                            notification.message,
+                            notification.link
+                        );
+                    });
+                }
+            })
+            .catch(error => console.error('Error checking notifications:', error));
+    }
+    
+    // Show any initial unread notifications passed from server
+    const notificationsData = window.notificationsData || [];
+    if (notificationsData.length > 0) {
+        notificationsData.forEach(notification => {
+            showToastNotification(
+                notification.title,
+                notification.message,
+                notification.link
+            );
+        });
+    }
+    
+    // Set interval to check for new notifications
+    // setInterval(checkForNewNotifications, 30000);
+    
     // Handle currency conversion in add expense form
     const currencySelect = document.getElementById('currency');
     const amountInput = document.getElementById('amount');
