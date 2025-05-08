@@ -1,10 +1,9 @@
-import os
 import requests
 import resend
 from collections import defaultdict
 from datetime import datetime
 
-def calculate_balances(group_id, expenses, members, display_currency=None):
+def calculate_balances(group_id, expenses, members, display_currency=None, include_settled=False):
     """
     Calculate the net balance for each member in the group.
     Positive balance means they are owed money.
@@ -15,6 +14,7 @@ def calculate_balances(group_id, expenses, members, display_currency=None):
         expenses: List of expense objects
         members: List of member objects
         display_currency: Optional currency to convert all balances to
+        include_settled: Whether to include settled expenses in the calculation (default: False)
 
     Returns:
         If display_currency is None:
@@ -30,6 +30,10 @@ def calculate_balances(group_id, expenses, members, display_currency=None):
     # Group expenses by currency
     currency_expenses = {}
     for expense in expenses:
+        # Skip settled expenses if include_settled is False
+        if not include_settled and expense.settled:
+            continue
+
         if expense.group_id == group_id:
             currency = expense.currency
             if currency not in currency_expenses:
@@ -207,12 +211,13 @@ def get_exchange_rates():
     Returns a dictionary of exchange rates where the key is the currency code
     and the value is the rate relative to USD.
 
-    For the MVP, we'll return a fixed set of exchange rates.
-    In a production app, this would call a real currency API.
+    Uses the currencyapi.com API if CURRENCY_API_KEY is set in environment variables.
+    Otherwise, returns a fixed set of rates for demo purposes.
     """
-    # Fixed rates for demo purposes
-    # In a real application, these would come from an API like exchangerate-api.com
-    rates = {
+    from config import Config
+
+    # Default rates for fallback
+    default_rates = {
         'USD': 1.0,
         'EUR': 0.92,
         'GBP': 0.79,
@@ -223,21 +228,38 @@ def get_exchange_rates():
         'CNY': 7.14
     }
 
-    # Uncomment the code below to use a real API
-    # Note: You would need to provide an API key
-    # try:
-    #     response = requests.get('https://api.exchangerate-api.com/v4/latest/USD')
-    #     if response.status_code == 200:
-    #         data = response.json()
-    #         rates = data.get('rates', {})
-    #         rates['USD'] = 1.0  # Ensure USD is set to 1.0
-    #     else:
-    #         # Use default rates if API call fails
-    #         pass
-    # except Exception as e:
-    #     print(f"Error fetching exchange rates: {e}")
+    # Get API key from config
+    api_key = Config.CURRENCY_API_KEY
 
-    return rates
+    # If no API key is provided, return default rates
+    if not api_key:
+        print("Currency API key not found in environment variables. Using default rates.")
+        return default_rates
+
+    # Try to fetch real-time rates from the API
+    try:
+        url = f"https://api.currencyapi.com/v3/latest?apikey={api_key}&base_currency=USD"
+        response = requests.get(url, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+            rates = {}
+
+            # Extract rates from the response
+            for currency, details in data.get('data', {}).items():
+                rates[currency] = details.get('value', 1.0)
+
+            # Ensure USD is set to 1.0
+            rates['USD'] = 1.0
+
+            return rates
+        else:
+            print(f"Error fetching exchange rates: {response.status_code} - {response.text}")
+            return default_rates
+
+    except Exception as e:
+        print(f"Error fetching exchange rates: {e}")
+        return default_rates
 
 def send_email(to_email, subject, html_content):
     """
@@ -254,9 +276,11 @@ def send_email(to_email, subject, html_content):
     Note:
         This requires the RESEND_API_KEY environment variable to be set.
     """
+    from config import Config
+
     try:
-        # Initialize Resend API key
-        resend.api_key = os.environ.get("RESEND_API_KEY")
+        # Initialize Resend API key from config
+        resend.api_key = Config.RESEND_API_KEY
 
         # Check if API key is available
         if not resend.api_key:
@@ -265,7 +289,7 @@ def send_email(to_email, subject, html_content):
 
         # Prepare email parameters
         params = {
-            "from": "BudgetSplit <notifications@budgetsplit.app>",
+            "from": "ExpenseSplitter <notifications@expensesplitter.app>",
             "to": [to_email],
             "subject": subject,
             "html": html_content

@@ -5,11 +5,8 @@ services:
     build: .
     ports:
       - "8080:8080"
-    environment:
-      - SESSION_SECRET=change_this_in_production
-      - DATABASE_URL=postgresql://ExpenseSplitter_owner:npg_lwcyRgUBx6s1@ep-raspy-mud-a4o8lo1t-pooler.us-east-1.aws.neon.tech/ExpenseSplitter?sslmode=require
-      # Uncomment and set these if you want to use them
-      # - RESEND_API_KEY=your_resend_api_key
+    env_file:
+      - .env
     volumes:
       - .:/app
     restart: unless-stopped

@@ -1,10 +1,23 @@
 @echo off
 echo Deploying to Cloud Run...
+
+REM Read environment variables from .env file
+for /F "tokens=*" %%A in (.env) do (
+    set %%A
+)
+
+REM Deploy to Cloud Run with environment variables
 gcloud run deploy expensesplitter ^
   --source . ^
   --platform managed ^
   --region us-central1 ^
   --allow-unauthenticated ^
-  --set-env-vars "DATABASE_URL=postgresql://ExpenseSplitter_owner:npg_lwcyRgUBx6s1@ep-raspy-mud-a4o8lo1t-pooler.us-east-1.aws.neon.tech/ExpenseSplitter?sslmode=require,SESSION_SECRET=change_this_in_production"
+  --set-env-vars "^
+DATABASE_URL=%DATABASE_URL%,^
+SESSION_SECRET=%SESSION_SECRET%,^
+DEBUG=%DEBUG%,^
+RESEND_API_KEY=%RESEND_API_KEY%,^
+CURRENCY_API_KEY=%CURRENCY_API_KEY%,^
+ALLOWED_HOSTS=%ALLOWED_HOSTS%"
 
 echo Deployment complete!

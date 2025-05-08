@@ -179,11 +179,22 @@ def view_group(group_id):
     # Get display currency from query parameter or user preference
     display_currency = request.args.get('currency') or current_user.preferred_currency
 
-    # Calculate balances
-    balances = calculate_balances(group_id, group_expenses, group_members, display_currency)
+    # Get show_settled parameter from query string (default: False)
+    show_settled = request.args.get('show_settled', '').lower() in ('true', '1', 't', 'yes')
+
+    # Calculate balances (excluding settled expenses by default)
+    balances = calculate_balances(group_id, group_expenses, group_members, display_currency, include_settled=False)
 
     # Get settlement plan
     settlement_plan = get_settlement_plan(balances, display_currency)
+
+    # Filter expenses based on show_settled parameter
+    if not show_settled:
+        # Only show unsettled expenses
+        filtered_expenses = [exp for exp in group_expenses if not exp.settled]
+    else:
+        # Show all expenses
+        filtered_expenses = group_expenses
 
     # Get all available currencies for the dropdown
     available_currencies = list(get_exchange_rates().keys())
@@ -191,11 +202,12 @@ def view_group(group_id):
     return render_template('group.html',
                           group=group,
                           members=group_members,
-                          expenses=group_expenses[:10],  # Show only the 10 most recent
+                          expenses=filtered_expenses[:10],  # Show only the 10 most recent
                           balances=balances,
                           settlement_plan=settlement_plan,
                           display_currency=display_currency,
-                          available_currencies=available_currencies)
+                          available_currencies=available_currencies,
+                          show_settled=show_settled)
 
 # Expense routes
 @app.route('/groups/<group_id>/add-expense', methods=['GET', 'POST'])
@@ -330,26 +342,44 @@ def view_expenses(group_id):
         flash('Group not found or you are not a member!', 'danger')
         return redirect(url_for('dashboard'))
 
-    # Get all group expenses with payer information
-    expenses_with_payers = db.session.query(
+    # Get show_settled parameter from query string (default: False)
+    show_settled = request.args.get('show_settled', '').lower() in ('true', '1', 't', 'yes')
+
+    # Base query for expenses with payer information
+    query = db.session.query(
         Expense, User.username.label('payer_name')
     ).join(
         User, Expense.payer == User.id
     ).filter(
         Expense.group_id == group_id
-    ).order_by(
-        Expense.date.desc()
-    ).all()
+    )
+
+    # Filter by settled status if needed
+    if not show_settled:
+        query = query.filter(Expense.settled == False)
+
+    # Get expenses ordered by date
+    expenses_with_payers = query.order_by(Expense.date.desc()).all()
 
     # Format expenses for template
     group_expenses = []
     for expense, payer_name in expenses_with_payers:
         expense.payer_name = payer_name
+
+        # Add settler information if the expense is settled
+        if expense.settled and expense.settled_by:
+            settler = User.query.get(expense.settled_by)
+            if settler:
+                expense.settler_name = settler.username
+            else:
+                expense.settler_name = "Unknown"
+
         group_expenses.append(expense)
 
     return render_template('expenses.html',
                           group=group,
-                          expenses=group_expenses)
+                          expenses=group_expenses,
+                          show_settled=show_settled)
 
 @app.route('/groups/<group_id>/settlements')
 @login_required
@@ -369,8 +399,11 @@ def view_settlements(group_id):
     # Get display currency from query parameter or user preference
     display_currency = request.args.get('currency') or current_user.preferred_currency
 
+    # Get include_settled parameter from query string (default: False)
+    include_settled = request.args.get('include_settled', '').lower() in ('true', '1', 't', 'yes')
+
     # Calculate balances
-    balances = calculate_balances(group_id, group_expenses, group_members, display_currency)
+    balances = calculate_balances(group_id, group_expenses, group_members, display_currency, include_settled=include_settled)
 
     # Get settlement plan
     settlement_plan = get_settlement_plan(balances, display_currency)
@@ -378,12 +411,26 @@ def view_settlements(group_id):
     # Get all available currencies for the dropdown
     available_currencies = list(get_exchange_rates().keys())
 
+    # Get settled expenses for reference
+    settled_expenses = Expense.query.filter_by(group_id=group_id, settled=True).order_by(Expense.settled_at.desc()).all()
+
+    # Add settler information to settled expenses
+    for expense in settled_expenses:
+        if expense.settled_by:
+            settler = User.query.get(expense.settled_by)
+            if settler:
+                expense.settler_name = settler.username
+            else:
+                expense.settler_name = "Unknown"
+
     return render_template('settlements.html',
                           group=group,
                           balances=balances,
                           settlement_plan=settlement_plan,
                           display_currency=display_currency,
-                          available_currencies=available_currencies)
+                          available_currencies=available_currencies,
+                          include_settled=include_settled,
+                          settled_expenses=settled_expenses)
 
 # Export routes
 @app.route('/groups/<group_id>/export')
@@ -458,6 +505,49 @@ def export_group_data(group_id):
         as_attachment=True,
         mimetype='text/csv'
     )
+
+# Expense settlement route
+@app.route('/expenses/<expense_id>/settle', methods=['POST'])
+@login_required
+def settle_expense(expense_id):
+    expense = Expense.query.get(expense_id)
+
+    if not expense:
+        flash('Expense not found!', 'danger')
+        return redirect(url_for('dashboard'))
+
+    group = Group.query.get(expense.group_id)
+
+    if not group or current_user not in group.members_rel:
+        flash('Group not found or you are not a member!', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # Mark the expense as settled
+    expense.settled = True
+    expense.settled_at = datetime.now()
+    expense.settled_by = current_user.id
+
+    # Create notifications for all participants
+    for participant in expense.participants:
+        if participant.id != current_user.id:
+            notification = Notification(
+                user_id=participant.id,
+                title=f"Expense Settled in {group.name}",
+                message=f"{current_user.username} marked an expense as settled: {expense.description} ({expense.currency} {expense.amount})",
+                link=url_for('view_group', group_id=group.id, _external=True)
+            )
+            db.session.add(notification)
+
+    db.session.commit()
+
+    flash('Expense marked as settled!', 'success')
+
+    # Redirect back to the referring page
+    referrer = request.referrer
+    if referrer:
+        return redirect(referrer)
+    else:
+        return redirect(url_for('view_group', group_id=expense.group_id))
 
 # Notification routes
 @app.route('/notifications')

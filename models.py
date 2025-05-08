@@ -92,10 +92,14 @@ class Expense(db.Model):
     currency = db.Column(db.String(3), default='USD')
     custom_splits = db.Column(db.Text, nullable=True)  # JSON string
     created_at = db.Column(db.DateTime, default=datetime.now)
+    settled = db.Column(db.Boolean, default=False)  # Whether the expense has been settled
+    settled_at = db.Column(db.DateTime, nullable=True)  # When the expense was settled
+    settled_by = db.Column(db.String(120), db.ForeignKey('user.id'), nullable=True)  # Who settled the expense
 
     # Relationships
     participants = db.relationship('User', secondary=expense_participants,
                                   backref=db.backref('expenses_participated', lazy='dynamic'))
+    settler = db.relationship('User', foreign_keys=[settled_by], backref='settled_expenses')
 
     def __init__(self, group_id, amount, description, date, payer, participants=None, currency='USD', custom_splits=None):
         self.id = str(uuid.uuid4())
@@ -107,6 +111,9 @@ class Expense(db.Model):
         self.currency = currency
         self.custom_splits = json.dumps(custom_splits) if custom_splits else None
         self.created_at = datetime.now()
+        self.settled = False
+        self.settled_at = None
+        self.settled_by = None
 
         # Participants will be added after the object is created
 
@@ -154,7 +161,10 @@ class Expense(db.Model):
             'participants': [user.id for user in self.participants],
             'currency': self.currency,
             'custom_splits': self.get_custom_splits(),
-            'created_at': self.created_at
+            'created_at': self.created_at,
+            'settled': self.settled,
+            'settled_at': self.settled_at,
+            'settled_by': self.settled_by
         }
 
 class Notification(db.Model):

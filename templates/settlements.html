@@ -107,8 +107,13 @@
         <!-- Settlement Plan -->
         <div class="col-lg-6 mb-4">
             <div class="card shadow-sm h-100">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Settlement Plan</h5>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="includeSettledSwitch"
+                               {% if include_settled %}checked{% endif %}>
+                        <label class="form-check-label small" for="includeSettledSwitch">Include Settled Expenses</label>
+                    </div>
                 </div>
                 <div class="card-body">
                     <p class="text-muted mb-3">
@@ -156,6 +161,36 @@
 
                     <hr>
 
+                    {% if settled_expenses and settled_expenses|length > 0 %}
+                    <h5 class="mb-3">Recently Settled Expenses</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Amount</th>
+                                    <th>Settled By</th>
+                                    <th>Settled On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in settled_expenses[:5] %}
+                                <tr>
+                                    <td>{{ expense.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ expense.description }}</td>
+                                    <td>{{ expense.currency }} {{ expense.amount }}</td>
+                                    <td>{{ expense.settler_name }}</td>
+                                    <td>{{ expense.settled_at.strftime('%Y-%m-%d') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+
+                    <hr>
+
                     <div class="text-center">
                         <a href="{{ url_for('export_group_data', group_id=group.id) }}" class="btn btn-outline-primary">
                             <i class="fas fa-file-export me-2"></i>Export Settlement Data
@@ -166,4 +201,12 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.getElementById('includeSettledSwitch').addEventListener('change', function() {
+        const url = new URL(window.location);
+        url.searchParams.set('include_settled', this.checked);
+        window.location = url;
+    });
+</script>
 {% endblock %}
