@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const balanceChartCanvas = document.getElementById('balance-chart');
     if (balanceChartCanvas) {
         const groupId = balanceChartCanvas.getAttribute('data-group-id');
-        
+
         // Fetch balance data
         fetch(`/api/groups/${groupId}/balance-data`)
             .then(response => response.json())
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('Error fetching balance data:', data.error);
                     return;
                 }
-                
+
                 // Create chart
                 const balanceChart = new Chart(balanceChartCanvas, {
                     type: 'bar',
@@ -31,10 +31,40 @@ document.addEventListener('DOMContentLoaded', function() {
                                 callbacks: {
                                     label: function(context) {
                                         const userName = context.label;
-                                        const balance = data.balances[userName];
-                                        return balance >= 0 
-                                            ? `${userName} is owed $${balance.toFixed(2)}` 
-                                            : `${userName} owes $${Math.abs(balance).toFixed(2)}`;
+                                        const userBalances = data.balances[userName];
+                                        const displayCurrency = data.display_currency;
+
+                                        if (displayCurrency) {
+                                            // Single currency format
+                                            const amount = userBalances;
+                                            const formattedAmount = Math.abs(amount).toFixed(2);
+
+                                            if (amount > 0) {
+                                                return `${userName} is owed ${displayCurrency} ${formattedAmount}`;
+                                            } else if (amount < 0) {
+                                                return `${userName} owes ${displayCurrency} ${formattedAmount}`;
+                                            } else {
+                                                return `${userName} is settled`;
+                                            }
+                                        } else {
+                                            // Multi-currency format
+                                            const balanceLines = [];
+                                            for (const currency in userBalances) {
+                                                const amount = userBalances[currency];
+                                                if (amount !== 0) {
+                                                    const formattedAmount = Math.abs(amount).toFixed(2);
+                                                    if (amount > 0) {
+                                                        balanceLines.push(`is owed ${currency} ${formattedAmount}`);
+                                                    } else {
+                                                        balanceLines.push(`owes ${currency} ${formattedAmount}`);
+                                                    }
+                                                }
+                                            }
+
+                                            return balanceLines.length > 0
+                                                ? [`${userName}:`, ...balanceLines]
+                                                : `${userName} is settled`;
+                                        }
                                     }
                                 }
                             }
@@ -56,46 +86,74 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                 });
-                
+
                 // Update balance summary in the DOM
                 const balanceSummary = document.getElementById('balance-summary');
                 if (balanceSummary) {
                     balanceSummary.innerHTML = '';
-                    
+
                     for (const userName in data.balances) {
-                        const balance = data.balances[userName];
+                        const userBalances = data.balances[userName];
+                        const displayCurrency = data.display_currency;
                         const balanceItem = document.createElement('div');
                         balanceItem.className = 'mb-2';
-                        
-                        if (balance > 0) {
-                            balanceItem.innerHTML = `
-                                <span class="fw-bold">${userName}:</span> 
-                                <span class="text-success">is owed $${balance.toFixed(2)}</span>
-                            `;
-                        } else if (balance < 0) {
-                            balanceItem.innerHTML = `
-                                <span class="fw-bold">${userName}:</span> 
-                                <span class="text-danger">owes $${Math.abs(balance).toFixed(2)}</span>
-                            `;
+
+                        // Create HTML for the user's name
+                        let balanceHTML = `<span class="fw-bold">${userName}:</span>`;
+
+                        if (displayCurrency) {
+                            // Single currency format
+                            const amount = userBalances;
+                            if (amount !== 0) {
+                                const formattedAmount = Math.abs(amount).toFixed(2);
+                                if (amount > 0) {
+                                    balanceHTML += ` <span class="text-success">is owed ${displayCurrency} ${formattedAmount}</span>`;
+                                } else {
+                                    balanceHTML += ` <span class="text-danger">owes ${displayCurrency} ${formattedAmount}</span>`;
+                                }
+                            } else {
+                                balanceHTML += ` <span class="text-secondary">is settled</span>`;
+                            }
                         } else {
-                            balanceItem.innerHTML = `
-                                <span class="fw-bold">${userName}:</span> 
-                                <span class="text-secondary">is settled</span>
-                            `;
+                            // Multi-currency format
+                            // Check if user has any non-zero balances
+                            const hasBalances = Object.values(userBalances).some(amount => amount !== 0);
+
+                            if (hasBalances) {
+                                balanceHTML += '<ul class="list-unstyled ms-3 mb-0">';
+
+                                // Add each currency balance
+                                for (const currency in userBalances) {
+                                    const amount = userBalances[currency];
+                                    if (amount !== 0) {
+                                        const formattedAmount = Math.abs(amount).toFixed(2);
+                                        if (amount > 0) {
+                                            balanceHTML += `<li><span class="text-success">is owed ${currency} ${formattedAmount}</span></li>`;
+                                        } else {
+                                            balanceHTML += `<li><span class="text-danger">owes ${currency} ${formattedAmount}</span></li>`;
+                                        }
+                                    }
+                                }
+
+                                balanceHTML += '</ul>';
+                            } else {
+                                balanceHTML += ` <span class="text-secondary">is settled</span>`;
+                            }
                         }
-                        
+
+                        balanceItem.innerHTML = balanceHTML;
                         balanceSummary.appendChild(balanceItem);
                     }
                 }
             })
             .catch(error => console.error('Error fetching balance data:', error));
     }
-    
+
     // Expense breakdown chart for settlements page
     const expenseChartCanvas = document.getElementById('expense-breakdown-chart');
     if (expenseChartCanvas) {
         const groupId = expenseChartCanvas.getAttribute('data-group-id');
-        
+
         // Fetch balance data (reusing the same endpoint)
         fetch(`/api/groups/${groupId}/balance-data`)
             .then(response => response.json())
@@ -104,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('Error fetching balance data:', data.error);
                     return;
                 }
-                
+
                 // Create pie chart for expense breakdown
                 const expenseChart = new Chart(expenseChartCanvas, {
                     type: 'pie',
@@ -127,11 +185,39 @@ document.addEventListener('DOMContentLoaded', function() {
                                 callbacks: {
                                     label: function(context) {
                                         const userName = context.label;
-                                        const balance = data.balances[userName];
+                                        const userBalances = data.balances[userName];
+                                        const displayCurrency = data.display_currency;
                                         const percentage = (context.raw / context.chart.getDatasetMeta(0).total * 100).toFixed(1);
-                                        return balance >= 0 
-                                            ? `${userName}: $${Math.abs(balance).toFixed(2)} (${percentage}%)` 
-                                            : `${userName}: $${Math.abs(balance).toFixed(2)} (${percentage}%)`;
+
+                                        if (displayCurrency) {
+                                            // Single currency format
+                                            const amount = userBalances;
+                                            const formattedAmount = Math.abs(amount).toFixed(2);
+
+                                            if (amount > 0) {
+                                                return `${userName} (${percentage}%): is owed ${displayCurrency} ${formattedAmount}`;
+                                            } else if (amount < 0) {
+                                                return `${userName} (${percentage}%): owes ${displayCurrency} ${formattedAmount}`;
+                                            } else {
+                                                return `${userName} (${percentage}%): is settled`;
+                                            }
+                                        } else {
+                                            // Multi-currency format
+                                            const balanceLines = [`${userName} (${percentage}%):`];
+                                            for (const currency in userBalances) {
+                                                const amount = userBalances[currency];
+                                                if (amount !== 0) {
+                                                    const formattedAmount = Math.abs(amount).toFixed(2);
+                                                    if (amount > 0) {
+                                                        balanceLines.push(`is owed ${currency} ${formattedAmount}`);
+                                                    } else {
+                                                        balanceLines.push(`owes ${currency} ${formattedAmount}`);
+                                                    }
+                                                }
+                                            }
+
+                                            return balanceLines;
+                                        }
                                     }
                                 }
                             }

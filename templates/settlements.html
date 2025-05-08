@@ -20,16 +20,45 @@
         <!-- Balance Chart -->
         <div class="col-lg-6 mb-4">
             <div class="card shadow-sm h-100">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Balance Overview</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="currencyDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ display_currency or 'Select Currency' }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="currencyDropdown">
+                            {% for currency in available_currencies %}
+                                <li>
+                                    <div class="d-flex justify-content-between align-items-center px-3 py-1">
+                                        <a class="dropdown-item {% if currency == display_currency %}active{% endif %} p-0"
+                                           href="{{ url_for('view_settlements', group_id=group.id, currency=currency) }}">
+                                            {{ currency }}
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-primary ms-2 set-default-currency"
+                                                data-currency="{{ currency }}"
+                                                title="Set as default currency">
+                                            <i class="fas fa-star"></i>
+                                        </button>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {% if not display_currency %}active{% endif %}"
+                                   href="{{ url_for('view_settlements', group_id=group.id) }}">
+                                    Show Original Currencies
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
                         <canvas id="expense-breakdown-chart" data-group-id="{{ group.id }}"></canvas>
                     </div>
-                    
+
                     <hr>
-                    
+
                     <h6 class="mb-3">Current Balances</h6>
                     <ul class="list-group">
                         {% for user_id, balance in balances.items() %}
@@ -39,13 +68,34 @@
                                         {{ member.username }}
                                     {% endif %}
                                 {% endfor %}
-                                
-                                {% if balance > 0 %}
-                                    <span class="badge bg-success rounded-pill">is owed ${{ balance }}</span>
-                                {% elif balance < 0 %}
-                                    <span class="badge bg-danger rounded-pill">owes ${{ balance|abs }}</span>
+
+                                {% if display_currency %}
+                                    {# Single currency format #}
+                                    {% if balance > 0 %}
+                                        <span class="badge bg-success rounded-pill">is owed {{ display_currency }} {{ balance }}</span>
+                                    {% elif balance < 0 %}
+                                        <span class="badge bg-danger rounded-pill">owes {{ display_currency }} {{ balance|abs }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary rounded-pill">settled</span>
+                                    {% endif %}
                                 {% else %}
-                                    <span class="badge bg-secondary rounded-pill">settled</span>
+                                    {# Multi-currency format #}
+                                    {% if balance|length > 0 %}
+                                        <div>
+                                            {% for currency, amount in balance.items() %}
+                                                {% if amount != 0 %}
+                                                    {% if amount > 0 %}
+                                                        <span class="badge bg-success rounded-pill">is owed {{ currency }} {{ amount }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger rounded-pill">owes {{ currency }} {{ amount|abs }}</span>
+                                                    {% endif %}
+                                                    <br>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="badge bg-secondary rounded-pill">settled</span>
+                                    {% endif %}
                                 {% endif %}
                             </li>
                         {% endfor %}
@@ -53,7 +103,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Settlement Plan -->
         <div class="col-lg-6 mb-4">
             <div class="card shadow-sm h-100">
@@ -64,7 +114,7 @@
                     <p class="text-muted mb-3">
                         This is the most efficient way to settle all debts in the group with the minimum number of transactions.
                     </p>
-                    
+
                     {% if settlement_plan|length > 0 %}
                         <div class="settlement-list">
                             {% for settlement in settlement_plan %}
@@ -81,7 +131,7 @@
                                             <div>
                                                 <i class="fas fa-arrow-right text-primary"></i>
                                                 <div class="mt-1">
-                                                    <span class="badge bg-primary">${{ settlement.amount }}</span>
+                                                    <span class="badge bg-primary">{{ settlement.currency }} {{ settlement.amount }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -103,9 +153,9 @@
                             <p class="text-muted">Everyone in the group is settled up.</p>
                         </div>
                     {% endif %}
-                    
+
                     <hr>
-                    
+
                     <div class="text-center">
                         <a href="{{ url_for('export_group_data', group_id=group.id) }}" class="btn btn-outline-primary">
                             <i class="fas fa-file-export me-2"></i>Export Settlement Data

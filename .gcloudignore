@@ -1,0 +1,54 @@
+# Exclude git and git-related files
+.git
+.gitignore
+
+# Exclude Docker-related files
+docker-compose.yml
+.dockerignore
+
+# Exclude Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Exclude virtual environment
+venv/
+.venv/
+ENV/
+
+# Exclude IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Exclude OS files
+.DS_Store
+Thumbs.db
+
+# Exclude test files
+tests/
+test_*.py
+*_test.py
+
+# Exclude documentation
+docs/
+*.md
+!README.md

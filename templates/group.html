@@ -42,14 +42,14 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-1"><strong>Created:</strong> {{ group.created_at.strftime('%Y-%m-%d') }}</p>
-                    <p class="mb-3"><strong>Created by:</strong> 
+                    <p class="mb-3"><strong>Created by:</strong>
                         {% for member in members %}
                             {% if member.id == group.created_by %}
                                 {{ member.username }}
                             {% endif %}
                         {% endfor %}
                     </p>
-                    
+
                     <h6 class="mb-2">Members ({{ members|length }})</h6>
                     <ul class="list-group mb-3">
                         {% for member in members %}
@@ -61,7 +61,7 @@
                         </li>
                         {% endfor %}
                     </ul>
-                    
+
                     <h6 class="mb-2">Invite Others</h6>
                     <div class="input-group mb-3">
                         <input type="text" class="form-control font-monospace invite-code" value="{{ group.invite_code }}" readonly>
@@ -72,13 +72,44 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Balance Overview -->
         <div class="col-lg-8 mb-4">
             <div class="card shadow-sm mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Balance Overview</h5>
-                    <a href="{{ url_for('view_settlements', group_id=group.id) }}" class="btn btn-sm btn-outline-primary">View Settlements</a>
+                    <div class="d-flex align-items-center">
+                        <div class="dropdown me-2">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="currencyDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                {{ display_currency or 'Select Currency' }}
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="currencyDropdown">
+                                {% for currency in available_currencies %}
+                                    <li>
+                                        <div class="d-flex justify-content-between align-items-center px-3 py-1">
+                                            <a class="dropdown-item {% if currency == display_currency %}active{% endif %} p-0"
+                                               href="{{ url_for('view_group', group_id=group.id, currency=currency) }}">
+                                                {{ currency }}
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-primary ms-2 set-default-currency"
+                                                    data-currency="{{ currency }}"
+                                                    title="Set as default currency">
+                                                <i class="fas fa-star"></i>
+                                            </button>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item {% if not display_currency %}active{% endif %}"
+                                       href="{{ url_for('view_group', group_id=group.id) }}">
+                                        Show Original Currencies
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <a href="{{ url_for('view_settlements', group_id=group.id, currency=display_currency) }}" class="btn btn-sm btn-outline-primary">View Settlements</a>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -98,7 +129,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     {% if settlement_plan|length > 0 %}
                     <hr>
                     <h6 class="mb-3">Suggested Settlements</h6>
@@ -125,7 +156,7 @@
                                             {% endfor %}
                                         </div>
                                         <div>
-                                            <span class="badge bg-secondary">${{ settlement.amount }}</span>
+                                            <span class="badge bg-secondary">{{ settlement.currency }} {{ settlement.amount }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -135,7 +166,7 @@
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Recent Expenses -->
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">

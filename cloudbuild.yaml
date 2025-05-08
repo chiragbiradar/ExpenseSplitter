@@ -1,0 +1,17 @@
+steps:
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'expensesplitter'
+      - '--source'
+      - '.'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'DATABASE_URL=postgresql://ExpenseSplitter_owner:npg_lwcyRgUBx6s1@ep-raspy-mud-a4o8lo1t-pooler.us-east-1.aws.neon.tech/ExpenseSplitter?sslmode=require,SESSION_SECRET=change_this_in_production'

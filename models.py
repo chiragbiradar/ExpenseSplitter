@@ -1,39 +1,76 @@
 from datetime import datetime
 import uuid
+import json
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
 
-class User(UserMixin):
+db = SQLAlchemy()
+
+# Association tables for many-to-many relationships
+group_members = db.Table('group_members',
+    db.Column('user_id', db.String(120), db.ForeignKey('user.id'), primary_key=True),
+    db.Column('group_id', db.String(36), db.ForeignKey('group.id'), primary_key=True)
+)
+
+expense_participants = db.Table('expense_participants',
+    db.Column('user_id', db.String(120), db.ForeignKey('user.id'), primary_key=True),
+    db.Column('expense_id', db.String(36), db.ForeignKey('expense.id'), primary_key=True)
+)
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.String(120), primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    preferred_currency = db.Column(db.String(3), default='USD')
+
+    # Relationships
+    groups = db.relationship('Group', secondary=group_members,
+                            backref=db.backref('members_rel', lazy='dynamic'))
+    expenses_paid = db.relationship('Expense', backref='payer_rel', foreign_keys='Expense.payer')
+    notifications = db.relationship('Notification', backref='user', lazy=True)
+
     def __init__(self, username, email, password):
         self.id = username
         self.username = username
         self.email = email
         self.password_hash = generate_password_hash(password)
         self.created_at = datetime.now()
-        self.groups = []  # List of group IDs the user belongs to
-    
+        self.preferred_currency = 'USD'
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-    
+
     def to_dict(self):
         return {
             'id': self.id,
             'username': self.username,
             'email': self.email,
             'created_at': self.created_at,
-            'groups': self.groups
+            'groups': [group.id for group in self.groups],
+            'preferred_currency': self.preferred_currency
         }
 
-class Group:
+class Group(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    created_by = db.Column(db.String(120), db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    invite_code = db.Column(db.String(8), unique=True, nullable=False)
+
+    # Relationships
+    expenses = db.relationship('Expense', backref='group', lazy=True)
+    creator = db.relationship('User', foreign_keys=[created_by])
+
     def __init__(self, name, created_by):
         self.id = str(uuid.uuid4())
         self.name = name
         self.created_by = created_by
         self.created_at = datetime.now()
-        self.invite_code = str(uuid.uuid4())[:8]  # Short invite code
-        self.members = [created_by]  # List of user IDs who are members
-        self.expenses = []  # List of expense IDs associated with this group
-    
+        self.invite_code = str(uuid.uuid4())[:8]
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -41,46 +78,71 @@ class Group:
             'created_by': self.created_by,
             'created_at': self.created_at,
             'invite_code': self.invite_code,
-            'members': self.members,
-            'expenses': self.expenses
+            'members': [member.id for member in self.members_rel],
+            'expenses': [expense.id for expense in self.expenses]
         }
 
-class Expense:
-    def __init__(self, group_id, amount, description, date, payer, participants, currency='USD', custom_splits=None):
+class Expense(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    group_id = db.Column(db.String(36), db.ForeignKey('group.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
+    payer = db.Column(db.String(120), db.ForeignKey('user.id'), nullable=False)
+    currency = db.Column(db.String(3), default='USD')
+    custom_splits = db.Column(db.Text, nullable=True)  # JSON string
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    participants = db.relationship('User', secondary=expense_participants,
+                                  backref=db.backref('expenses_participated', lazy='dynamic'))
+
+    def __init__(self, group_id, amount, description, date, payer, participants=None, currency='USD', custom_splits=None):
         self.id = str(uuid.uuid4())
         self.group_id = group_id
         self.amount = float(amount)
         self.description = description
         self.date = date
-        self.payer = payer  # User ID of who paid
-        self.participants = participants  # List of user IDs who share the expense
+        self.payer = payer
         self.currency = currency
-        # If custom_splits is None, equal splits assumed
-        # Otherwise, it's a dict mapping user_id -> percentage (0-100)
-        self.custom_splits = custom_splits if custom_splits else None
+        self.custom_splits = json.dumps(custom_splits) if custom_splits else None
         self.created_at = datetime.now()
-    
+
+        # Participants will be added after the object is created
+
+    def get_custom_splits(self):
+        """Get custom splits as a dictionary"""
+        if self.custom_splits:
+            return json.loads(self.custom_splits)
+        return None
+
     def get_split_for_user(self, user_id):
         """Calculate how much this user owes or is owed for this expense"""
-        if user_id not in self.participants:
-            return 0
-        
-        if self.custom_splits:
+        participants_ids = [user.id for user in self.participants]
+
+        if user_id not in participants_ids:
+            return {'amount': 0, 'currency': self.currency}
+
+        custom_splits = self.get_custom_splits()
+
+        if custom_splits:
             # Custom split based on percentages
-            if user_id in self.custom_splits:
-                share = self.amount * (self.custom_splits[user_id] / 100.0)
+            if user_id in custom_splits:
+                share = self.amount * (custom_splits[user_id] / 100.0)
             else:
                 share = 0
         else:
             # Equal split
-            share = self.amount / len(self.participants)
-        
+            share = self.amount / len(participants_ids)
+
         # If user is the payer, they paid the full amount but owe their share
         if user_id == self.payer:
-            return self.amount - share  # Positive: user is owed money
+            amount = self.amount - share  # Positive: user is owed money
         else:
-            return -share  # Negative: user owes money
-    
+            amount = -share  # Negative: user owes money
+
+        return {'amount': amount, 'currency': self.currency}
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -89,13 +151,21 @@ class Expense:
             'description': self.description,
             'date': self.date,
             'payer': self.payer,
-            'participants': self.participants,
+            'participants': [user.id for user in self.participants],
             'currency': self.currency,
-            'custom_splits': self.custom_splits,
+            'custom_splits': self.get_custom_splits(),
             'created_at': self.created_at
         }
 
-class Notification:
+class Notification(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.String(120), db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    link = db.Column(db.String(200), nullable=True)
+    read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
     def __init__(self, user_id, title, message, link=None):
         self.id = str(uuid.uuid4())
         self.user_id = user_id
@@ -104,7 +174,7 @@ class Notification:
         self.link = link
         self.read = False
         self.created_at = datetime.now()
-    
+
     def to_dict(self):
         return {
             'id': self.id,
