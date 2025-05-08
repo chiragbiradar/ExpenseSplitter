@@ -28,7 +28,7 @@
                             <h5 class="card-title">{{ group.name }}</h5>
                             <div class="card-text text-muted mb-3">
                                 <small>Created: {{ group.created_at.strftime('%Y-%m-%d') }}</small><br>
-                                <small>Members: {{ group.members|length }}</small><br>
+                                <small>Members: {{ group.members_rel.count() }}</small><br>
                                 <small>Expenses: {{ group.expenses|length }}</small>
                             </div>
                             <a href="{{ url_for('view_group', group_id=group.id) }}" class="btn btn-outline-primary btn-sm">View Group</a>
